@@ -1,0 +1,14 @@
+# redis host and port parameters
+redis:
+  host: redis
+  port: 6379
+
+# streamKeys to be used by producers
+stream:
+  created-key: "snippet-linting-stream"
+  updated-key: "linting-updated-stream"
+
+
+# groupIds to be used by consumers
+groups:
+  product: "snippet-linter-group"
