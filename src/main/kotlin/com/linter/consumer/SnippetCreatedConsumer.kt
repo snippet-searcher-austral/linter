@@ -9,6 +9,8 @@ import org.springframework.data.redis.stream.StreamReceiver
 import org.springframework.stereotype.Component
 import java.time.Duration
 import com.linter.service.LinterService
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
 
 @Component
 class SnippetCreatedConsumer @Autowired constructor(
@@ -28,6 +30,8 @@ class SnippetCreatedConsumer @Autowired constructor(
     override fun onMessage(record: ObjectRecord<String, String>) {
         // What we want to do with the stream
         println("Id: ${record.id}, Value: ${record.value}, Stream: ${record.stream}, Group: ${groupId}")
-        linterService.lint(record.value)
+        GlobalScope.launch {
+            linterService.lint(record.value)
+        }
     }
 }

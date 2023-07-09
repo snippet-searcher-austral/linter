@@ -3,7 +3,6 @@ package com.linter.service
 import com.linter.entity.LintRules
 import com.linter.entity.Rule
 import com.linter.repository.LintRulesRepository
-import org.json.JSONObject
 import org.springframework.stereotype.Service
 import prinscript.language.linter.LinterImpl
 import prinscript.language.rule.CamelCaseRule
@@ -14,16 +13,12 @@ import printscript.language.lexer.LexerFactory
 import printscript.language.lexer.TokenListIterator
 import printscript.language.parser.ASTIterator
 import printscript.language.parser.ParserFactory
-import java.net.HttpURLConnection
-import java.net.URL
 import java.util.UUID
 
 data class Snippet(val content: String, val userId: String)
 
-const val baseUrl = "https://snippet-searcher.southafricanorth.cloudapp.azure.com/snippet-manager/snippet/"
-
 @Service
-class LinterService(private val lintRulesRepository: LintRulesRepository) {
+class LinterService(private val lintRulesRepository: LintRulesRepository, private val snippetManagerHTTPService: SnippetManagerHTTPService) {
     fun createLintingRules(userId: String, rules: List<Rule>): LintRules {
         return lintRulesRepository.save(
             LintRules(
@@ -42,13 +37,12 @@ class LinterService(private val lintRulesRepository: LintRulesRepository) {
         return lintRulesRepository.save(newLintRules)
     }
 
-    fun lint(snippetId: String) {
-        val snippet = getSnippet(snippetId)
-        println(snippet)
+    suspend fun lint(snippetId: String) {
+        val snippet = snippetManagerHTTPService.getSnippet(snippetId)
         val lintRules = lintRulesRepository.findByUserId(snippet.userId)
-        println(lintRules)
         if (lintRules == null || lintRules.rules.isEmpty()) {
             println("No lint rules found for user ${snippet.userId}")
+            snippetManagerHTTPService.updateSnippet(snippetId, "FAILED")
             return
         }
         val rules = lintRules.rules
@@ -64,11 +58,11 @@ class LinterService(private val lintRulesRepository: LintRulesRepository) {
             }
         } catch (e: Exception) {
             println("Error while linting: ${e.message}")
-            updateSnippet(snippetId, "NOT_COMPLIANT")
+            snippetManagerHTTPService.updateSnippet(snippetId, "NOT_COMPLIANT")
         }
         val complianceValue = if (lintResults.isEmpty()) "COMPLIANT" else "NOT_COMPLIANT"
         try {
-            updateSnippet(snippetId, complianceValue)
+            snippetManagerHTTPService.updateSnippet(snippetId, complianceValue)
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -82,46 +76,12 @@ class LinterService(private val lintRulesRepository: LintRulesRepository) {
         return ASTIterator(parser, tokenListIterator)
     }
 
-    private fun getSnippet(snippetId: String): Snippet {
-        val url = URL(baseUrl + snippetId)
-        val connection = url.openConnection() as HttpURLConnection
-        connection.requestMethod = "GET"
-        val response = connection.inputStream.bufferedReader().use { it.readText() }
-        connection.disconnect()
-
-        val jsonResponse = JSONObject(response)
-        val content = jsonResponse.getString("content");
-        val userId = jsonResponse.getString("userId");
-        return Snippet(content, userId)
-    }
-
-    private fun updateSnippet(snippetId: String, complianceValue: String) {
-        val url = URL(baseUrl + snippetId)
-        val connection = url.openConnection() as HttpURLConnection
-        connection.requestMethod = "PUT"
-        connection.doOutput = true
-        connection.setRequestProperty("Content-Type", "application/json; utf-8")
-
-        val jsonInputString = "{\"compliance\": \"$complianceValue\"}"
-
-        connection.outputStream.use { os ->
-            val input = jsonInputString.toByteArray(charset("utf-8"))
-            os.write(input, 0, input.size)
-        }
-
-        val response = connection.inputStream.bufferedReader().use { it.readText() }
-        connection.disconnect()
-
-        println("Response: $response")
-    }
-
     private fun Rule.toRule(): prinscript.language.rule.Rule {
         return when (this) {
             Rule.CAMEL_CASE-> CamelCaseRule
             Rule.NO_EXPRESSIONS_ON_PRINT -> NoExpressionsOnPrintRule
             Rule.NO_EXPRESSIONS_ON_READ -> NoExpressionsOnReadRule
             Rule.SNAKE_CASE -> SnakeCaseRule
-            else -> throw Exception("Rule not found")
         }
     }
 }
