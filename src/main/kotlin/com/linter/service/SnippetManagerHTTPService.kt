@@ -9,8 +9,8 @@ import java.net.URL
 
 @Service
 class SnippetManagerHTTPService(private val authService: AuthService) {
-    @Value("\${snippet-manager.url}")
-    private lateinit var baseUrl: String
+
+    private var baseUrl = System.getenv("SNIPPET_MANAGER_URL") ?: "Not found :("
 
     suspend fun getSnippet(snippetId: String): Snippet {
         val url = URL(baseUrl + snippetId)

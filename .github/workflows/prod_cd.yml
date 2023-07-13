@@ -26,3 +26,30 @@ jobs:
           push: true
           tags: |
             ghcr.io/snippet-searcher-austral/linter-prod:latest
+          build-args: |
+            github_username=matiaslcoulougian
+            github_token=${{ secrets.GHCR_TOKEN }}
+
+  deploy:
+    needs: publish-prod-image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create SSH key
+        run: |
+          mkdir -p ~/.ssh/
+          echo "$SSH_PRIVATE_KEY" > ../private.key
+          sudo chmod 400 ../private.key
+          echo "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+        shell: bash
+        env:
+          SSH_PRIVATE_KEY: ${{secrets.PROD_SSH_PRIVATE}}
+          SSH_KNOWN_HOSTS: ${{secrets.PROD_SSH_KNOWN_HOSTS}}
+
+      - name: Connect via SSH and deploy
+        run: |
+          ssh -i $SSH_KEY_PATH mati@${{secrets.PROD_SSH_HOST}} "sudo bash -s" <<EOF
+            bash deploy-script.sh "${{ secrets.GHCR_TOKEN }}" linter-api"
+          EOF
+        env:
+          SSH_KEY_PATH: ${{ github.workspace }}/../private.key
+

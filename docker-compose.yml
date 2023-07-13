@@ -1,20 +1,20 @@
 version: '3'
 
 services:
-  api:
-    container_name: "linter-api"
-    build:
-      context: .
-      dockerfile: Dockerfile_dev
-    ports:
-      - 8080:8080
-    env_file:
-      - api.env
+#  api:
+#    container_name: "linter-api"
+#    build:
+#      context: .
+#      dockerfile: Dockerfile_dev
+#    ports:
+#      - 8080:8080
+#    env_file:
+#      - api.env
   db:
     container_name: "linter-db"
     image: postgres:12
     ports:
-      - 5432:5432
+      - 5435:5432
     volumes:
         - linter:/var/lib/postgresql/data
     env_file:
